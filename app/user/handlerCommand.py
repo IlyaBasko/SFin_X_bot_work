@@ -1,8 +1,10 @@
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import CommandStart
-from app.keyboards import kbReply
-from app.database.models import add_user, update_user_activity
+
+from app.database.locales import get_localized_text
+from app.database.models import add_user, update_user_activity, get_user_language
+from app.keyboards.kbReply import get_localized_keyboard
 
 router = Router()
 
@@ -10,7 +12,7 @@ router = Router()
 @router.message(CommandStart())
 async def start(message: Message):
     user = message.from_user
-
+    language = await get_user_language(user.id)  # Получаем сохраненный язык или 'ru' по умолчанию
     # Регистрируем пользователя в БД
     await add_user(
         user_id=user.id,
@@ -22,11 +24,27 @@ async def start(message: Message):
     # Обновляем активность
     await update_user_activity(user.id)
 
-    await message.answer(
-        f"Привет, {user.first_name}! Я бот для учета финансов.\n\n"
-        "Доступные команды:\n"
-        "• Баланс - текущее состояние\n"
-        "• Отчёт - статистика\n"
-        "• Добавить операцию - новая запись",
-        reply_markup=kbReply.main
+    # Локализованное приветствие
+    welcome_text = get_localized_text(language, 'welcome_message').format(
+        first_name=user.first_name,
+        commands=get_localized_text(language, 'available_commands')
     )
+
+    await message.answer(
+        welcome_text,
+        reply_markup=get_localized_keyboard(language)  # Локализованная клавиатура
+    )
+
+
+@router.message(F.text.in_([get_localized_text('ru', 'help'), get_localized_text('en', 'help')]))
+async def handle_help(message: Message):
+    user_id = message.from_user.id
+    language = await get_user_language(user_id)
+
+    help_text = get_localized_text(language, 'help_message')
+
+    await message.answer(
+        help_text,
+        reply_markup=get_localized_keyboard(language)
+    )
+    await update_user_activity(user_id)

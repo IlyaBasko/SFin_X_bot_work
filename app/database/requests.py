@@ -1,98 +1,116 @@
-import aiosqlite
 from datetime import datetime, timedelta
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional
+from dotenv import load_dotenv
+from app.database.models import get_connection
+
+load_dotenv()
 
 
-async def add_operation(user_id: int, op_type: str, amount: float,
+async def add_operation(user_id: int, op_type: str, amount: float, currency: str,
                         category: str, comment: str) -> bool:
     """Добавление новой операции"""
-    async with aiosqlite.connect('SFin_X_bot.db') as db:
-        try:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = await get_connection()
+    try:
+        now = datetime.now()
 
+        async with conn.transaction():
             # Добавляем операцию
-            await db.execute(
+            await conn.execute(
                 '''
                 INSERT INTO operations 
                 (user_id, type, amount, category, comment, operation_date)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 ''',
-                (user_id, op_type, amount, category, comment, now)
+                user_id, op_type, amount, category, comment, now
             )
 
             # Обновляем активность пользователя
-            await db.execute(
+            await conn.execute(
                 '''
                 UPDATE users 
-                SET last_activity_date = ?
-                WHERE user_id = ?
+                SET last_activity_date = $1
+                WHERE user_id = $2
                 ''',
-                (now, user_id)
+                now, user_id
             )
 
-            await db.commit()
-            return True
-        except Exception as e:
-            print(f"Ошибка при добавлении операции: {e}")
-            await db.rollback()
-            return False
+            await conn.execute(
+                '''
+                INSERT INTO operations 
+                (user_id, type, amount, currency, category, comment, operation_date)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ''',
+                user_id, op_type, amount, currency, category, comment, datetime.now()
+            )
+
+        return True
+    except Exception as e:
+        print(f"Ошибка при добавлении операции: {e}")
+        return False
+    finally:
+        await conn.close()
 
 
 async def get_balance(user_id: int,
                       period_days: Optional[int] = None) -> Dict[str, float]:
     """Получение баланса пользователя"""
-    async with aiosqlite.connect('SFin_X_bot.db') as db:
+    conn = await get_connection()
+    try:
         query = '''
         SELECT 
             SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
             SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense
         FROM operations
-        WHERE user_id = ?
+        WHERE user_id = $1
         '''
 
         params = [user_id]
 
         if period_days:
-            date_from = (datetime.now() - timedelta(days=period_days)).strftime("%Y-%m-%d %H:%M:%S")
-            query += ' AND operation_date >= ?'
+            date_from = datetime.now() - timedelta(days=period_days)
+            query += ' AND operation_date >= $2'
             params.append(date_from)
 
-        cursor = await db.execute(query, tuple(params))
-        result = await cursor.fetchone()
+        result = await conn.fetchrow(query, *params)
 
         if not result:
             return {'income': 0.0, 'expense': 0.0, 'balance': 0.0}
 
-        income = result[0] or 0.0
-        expense = result[1] or 0.0
+        income = result['income'] or 0.0
+        expense = result['expense'] or 0.0
         return {
             'income': float(income),
             'expense': float(expense),
             'balance': float(income - expense)
         }
+    finally:
+        await conn.close()
 
 
 async def get_operations_report(user_id: int,
                                 days: int = 7) -> Dict[str, List[Dict]]:
     """Получение отчета за период"""
-    async with aiosqlite.connect('SFin_X_bot.db') as db:
-        date_from = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    conn = await get_connection()
+    try:
+        date_from = datetime.now() - timedelta(days=days)
 
-        cursor = await db.execute('''
-            SELECT type, category, SUM(amount), COUNT(*)
+        rows = await conn.fetch('''
+            SELECT type, category, SUM(amount) as total, COUNT(*) as count
             FROM operations
-            WHERE user_id = ? AND operation_date >= ?
+            WHERE user_id = $1 AND operation_date >= $2
             GROUP BY type, category
             ORDER BY type, SUM(amount) DESC
-            ''', (user_id, date_from))
+            ''', user_id, date_from)
 
         report = {'income': [], 'expense': []}
-        async for row in cursor:
-            op_type, category, total, count = row
+        for row in rows:
+            op_type = row['type']
             report[op_type].append({
-                'category': category,
-                'total': float(total),
-                'count': count
+                'category': row['category'],
+                'total': float(row['total']),
+                'count': row['count']
             })
 
         return report
+    finally:
+        await conn.close()

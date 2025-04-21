@@ -6,71 +6,46 @@ from aiogram.types import (
 
 from app.database.locales import get_localized_text
 
-main = ReplyKeyboardMarkup(
-    keyboard=[
-        [
-            KeyboardButton(text="Баланс"),
-            KeyboardButton(text="Отчёт")
-        ],
-        [
-            KeyboardButton(text="Добавить операцию"),
-            KeyboardButton(text="Планирование"),
-        ],
-        [
-            KeyboardButton(text="Настройки"),
-            KeyboardButton(text="Справка"),
-        ],
-        [
-            KeyboardButton(text="НАЗАД"),
-        ]
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-    input_field_placeholder="Выберите действие из меню",
-    selective=True
-)
 
-def operation_category_keyboard():
-
+def operation_category_keyboard(language_code: str):
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Добавить расход")],
-            [KeyboardButton(text="Добавить доход")],
-            [KeyboardButton(text="НАЗАД")]
+            [KeyboardButton(text=get_localized_text(language_code, 'add_expense'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'add_income'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'back'))]
         ],
         resize_keyboard=True
     )
 
-def settings_keyboard():
-    """Клавиатура настроек"""
+def settings_keyboard(language_code: str):
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Изменить валюту")],
-            [KeyboardButton(text="Установить лимиты")],
-            [KeyboardButton(text="Язык")],
-            [KeyboardButton(text="Уведомления")],
-            [KeyboardButton(text="НАЗАД")]
+            [KeyboardButton(text=get_localized_text(language_code, 'change_currency'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'set_limits'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'language'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'notifications'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'back'))]
         ],
         resize_keyboard=True,
         one_time_keyboard=True
     )
 
-def currency_keyboard():
+def currency_keyboard(language: str = 'ru') -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="RUB ₽")],
-            [KeyboardButton(text="USD $")],
-            [KeyboardButton(text="EUR €")],
-            [KeyboardButton(text="НАЗАД")]
+            [KeyboardButton(text=get_localized_text(language, 'currency_rub'))],
+            [KeyboardButton(text=get_localized_text(language, 'currency_usd'))],
+            [KeyboardButton(text=get_localized_text(language, 'currency_eur'))],
+            [KeyboardButton(text=get_localized_text(language, 'back'))]
         ],
         resize_keyboard=True
     )
 
-def language_keyboard():
+def language_keyboard(language: str):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Русский"), KeyboardButton(text="English")],
-            [KeyboardButton(text="НАЗАД")]
+            [KeyboardButton(text=get_localized_text(language, 'back'))]
         ],
         resize_keyboard=True
     )
@@ -93,6 +68,18 @@ def get_localized_keyboard(language_code: str) -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text=get_localized_text(language_code, 'back'))
             ]
+        ],
+        resize_keyboard=True
+    )
+
+def report_period_keyboard(language_code: str) -> ReplyKeyboardMarkup:
+    """Локализованная клавиатура для выбора периода отчета"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=get_localized_text(language_code, 'daily_report'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'weekly_report'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'monthly_report'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'back'))]
         ],
         resize_keyboard=True
     )

@@ -34,17 +34,3 @@ async def start(message: Message):
         welcome_text,
         reply_markup=get_localized_keyboard(language)  # Локализованная клавиатура
     )
-
-
-@router.message(F.text.in_([get_localized_text('ru', 'help'), get_localized_text('en', 'help')]))
-async def handle_help(message: Message):
-    user_id = message.from_user.id
-    language = await get_user_language(user_id)
-
-    help_text = get_localized_text(language, 'help_message')
-
-    await message.answer(
-        help_text,
-        reply_markup=get_localized_keyboard(language)
-    )
-    await update_user_activity(user_id)

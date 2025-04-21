@@ -99,6 +99,16 @@ async def init_db():
             )
             ''')
 
+        await conn.execute('''
+                    CREATE TABLE IF NOT EXISTS category_limits (
+                        user_id INTEGER,
+                        category TEXT,
+                        monthly_limit REAL,
+                        PRIMARY KEY (user_id, category),
+                        FOREIGN KEY(user_id) REFERENCES users(user_id)
+                    )
+                ''')
+
         print("База данных успешно инициализирована")
     except Exception as e:
         print(f"Ошибка инициализации БД PostgreSQL: {str(e)}")
@@ -378,6 +388,69 @@ async def get_notification_status(user_id: int) -> bool:
             user_id
         )
         return status if status is not None else True  # По умолчанию включены
+    finally:
+        await conn.close()
+
+
+async def set_category_limit(user_id: int, category: str, limit: float):
+    """Установка лимита для категории расходов"""
+    conn = await asyncpg.connect(
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        database=os.getenv('DB_NAME'),
+        host=os.getenv('DB_HOST'),
+        port=int(os.getenv('DB_PORT', 5432)))
+
+    try:
+        await conn.execute('''
+            INSERT INTO category_limits (user_id, category, monthly_limit)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, category) DO UPDATE
+            SET monthly_limit = EXCLUDED.monthly_limit
+        ''', user_id, category, limit)
+    finally:
+        await conn.close()
+
+
+async def get_category_limits(user_id: int) -> dict:
+    """Получение всех лимитов пользователя"""
+    conn = await asyncpg.connect(
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        database=os.getenv('DB_NAME'),
+        host=os.getenv('DB_HOST'),
+        port=int(os.getenv('DB_PORT', 5432)))
+
+    try:
+        records = await conn.fetch(
+            'SELECT category, monthly_limit FROM category_limits WHERE user_id = $1',
+            user_id
+        )
+        return {rec['category']: rec['monthly_limit'] for rec in records}
+    finally:
+        await conn.close()
+
+
+async def get_category_spending(user_id: int, category: str) -> float:
+    """Получение суммы расходов по категории за текущий месяц"""
+    conn = await asyncpg.connect(
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        database=os.getenv('DB_NAME'),
+        host=os.getenv('DB_HOST'),
+        port=int(os.getenv('DB_PORT', 5432)))
+
+    try:
+        start_date = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        result = await conn.fetchval('''
+            SELECT COALESCE(SUM(amount), 0)
+            FROM operations
+            WHERE user_id = $1 
+            AND category = $2
+            AND type = 'expense'
+            AND operation_date >= $3
+        ''', user_id, category, start_date)
+        return result or 0.0
     finally:
         await conn.close()
 

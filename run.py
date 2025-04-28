@@ -1,10 +1,13 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher
+
+from app.admin.handlers import router as admin_router
 from app.user import handlerCommand, handlerQuests
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
-from app.database.models import init_db
+from app.database.models import init_db, create_admin_table, add_admin
+
 
 load_dotenv()
 
@@ -15,6 +18,10 @@ async def main():
     # Инициализация базы данных перед запуском бота
     try:
         await init_db()
+        await create_admin_table()  # Создаем таблицу администраторов
+
+        # Добавляем первого администратора (ваш ID)
+        await add_admin(728823908, "admin", is_superadmin=True)
     except Exception as e:
         print(f"Ошибка инициализации БД: {e}")
         return
@@ -25,7 +32,9 @@ async def main():
     dp = Dispatcher()
     dp.include_routers(
         handlerCommand.router,
-        handlerQuests.router
+        handlerQuests.router,
+        admin_router
+
     )
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

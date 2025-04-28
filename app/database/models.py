@@ -1,5 +1,8 @@
 import os
 import csv
+from io import BytesIO
+import pandas as pd
+
 import asyncpg
 import aiofiles
 from datetime import datetime, timedelta
@@ -98,16 +101,6 @@ async def init_db():
                 updated_at TIMESTAMP DEFAULT NOW()
             )
             ''')
-
-        await conn.execute('''
-                    CREATE TABLE IF NOT EXISTS category_limits (
-                        user_id INTEGER,
-                        category TEXT,
-                        monthly_limit REAL,
-                        PRIMARY KEY (user_id, category),
-                        FOREIGN KEY(user_id) REFERENCES users(user_id)
-                    )
-                ''')
 
         print("База данных успешно инициализирована")
     except Exception as e:
@@ -391,69 +384,6 @@ async def get_notification_status(user_id: int) -> bool:
     finally:
         await conn.close()
 
-
-async def set_category_limit(user_id: int, category: str, limit: float):
-    """Установка лимита для категории расходов"""
-    conn = await asyncpg.connect(
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        database=os.getenv('DB_NAME'),
-        host=os.getenv('DB_HOST'),
-        port=int(os.getenv('DB_PORT', 5432)))
-
-    try:
-        await conn.execute('''
-            INSERT INTO category_limits (user_id, category, monthly_limit)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, category) DO UPDATE
-            SET monthly_limit = EXCLUDED.monthly_limit
-        ''', user_id, category, limit)
-    finally:
-        await conn.close()
-
-
-async def get_category_limits(user_id: int) -> dict:
-    """Получение всех лимитов пользователя"""
-    conn = await asyncpg.connect(
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        database=os.getenv('DB_NAME'),
-        host=os.getenv('DB_HOST'),
-        port=int(os.getenv('DB_PORT', 5432)))
-
-    try:
-        records = await conn.fetch(
-            'SELECT category, monthly_limit FROM category_limits WHERE user_id = $1',
-            user_id
-        )
-        return {rec['category']: rec['monthly_limit'] for rec in records}
-    finally:
-        await conn.close()
-
-
-async def get_category_spending(user_id: int, category: str) -> float:
-    """Получение суммы расходов по категории за текущий месяц"""
-    conn = await asyncpg.connect(
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        database=os.getenv('DB_NAME'),
-        host=os.getenv('DB_HOST'),
-        port=int(os.getenv('DB_PORT', 5432)))
-
-    try:
-        start_date = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        result = await conn.fetchval('''
-            SELECT COALESCE(SUM(amount), 0)
-            FROM operations
-            WHERE user_id = $1 
-            AND category = $2
-            AND type = 'expense'
-            AND operation_date >= $3
-        ''', user_id, category, start_date)
-        return result or 0.0
-    finally:
-        await conn.close()
-
 async def cleanup_file(filename: str):
     """Удаление временного файла"""
     try:
@@ -461,3 +391,136 @@ async def cleanup_file(filename: str):
             os.remove(filename)
     except Exception as e:
         print(f"Ошибка при удалении файла: {e}")
+
+
+async def create_admin_table():
+    """Создаем таблицу администраторов"""
+    conn = await get_connection()
+    try:
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS admins (
+                user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+                username TEXT,
+                added_at TIMESTAMP DEFAULT NOW(),
+                is_superadmin BOOLEAN DEFAULT FALSE
+            )
+        ''')
+    finally:
+        await conn.close()
+
+
+async def add_admin(user_id: int, username: str, is_superadmin: bool = False):
+    """Добавление администратора"""
+    conn = await get_connection()
+    try:
+        await conn.execute('''
+            INSERT INTO admins (user_id, username, is_superadmin)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id) DO NOTHING
+        ''', user_id, username, is_superadmin)
+    finally:
+        await conn.close()
+
+
+async def is_admin(user_id: int) -> bool:
+    """Проверка прав администратора"""
+    conn = await get_connection()
+    try:
+        return await conn.fetchval(
+            'SELECT 1 FROM admins WHERE user_id = $1',
+            user_id
+        ) is not None
+    finally:
+        await conn.close()
+
+
+async def get_all_users_stats():
+    """Получение статистики по всем пользователям"""
+    conn = await get_connection()
+    try:
+        # Общая статистика
+        stats = await conn.fetchrow('''
+            SELECT 
+                COUNT(DISTINCT user_id) as total_users,
+                SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as total_income,
+                SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as total_expense
+            FROM operations
+        ''')
+
+        # Топ категорий
+        top_income = await conn.fetch('''
+            SELECT category, SUM(amount) as amount 
+            FROM operations 
+            WHERE type = 'income'
+            GROUP BY category 
+            ORDER BY amount DESC 
+            LIMIT 5
+        ''')
+
+        top_expense = await conn.fetch('''
+            SELECT category, SUM(amount) as amount 
+            FROM operations 
+            WHERE type = 'expense'
+            GROUP BY category 
+            ORDER BY amount DESC 
+            LIMIT 5
+        ''')
+
+        return {
+            'total_users': stats['total_users'],
+            'total_income': float(stats['total_income']) if stats['total_income'] else 0.0,
+            'total_expense': float(stats['total_expense']) if stats['total_expense'] else 0.0,
+            'top_income_categories': [
+                {'category': row['category'], 'amount': float(row['amount'])}
+                for row in top_income
+            ],
+            'top_expense_categories': [
+                {'category': row['category'], 'amount': float(row['amount'])}
+                for row in top_expense
+            ]
+        }
+    finally:
+        await conn.close()
+
+
+async def export_all_to_excel() -> BytesIO:
+    """Экспорт всех данных в Excel"""
+    conn = await get_connection()
+    try:
+        output = BytesIO()
+
+        # Получаем данные
+        users = await conn.fetch("SELECT * FROM users")
+        operations = await conn.fetch("SELECT * FROM operations")
+        admins = await conn.fetch("SELECT * FROM admins")
+
+        # Создаем Excel файл
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:  # Используем openpyxl
+            # Лист с пользователями
+            pd.DataFrame(users).to_excel(
+                writer,
+                sheet_name='Пользователи',
+                index=False
+            )
+
+            # Лист с операциями
+            pd.DataFrame(operations).to_excel(
+                writer,
+                sheet_name='Операции',
+                index=False
+            )
+
+            # Лист с администраторами
+            pd.DataFrame(admins).to_excel(
+                writer,
+                sheet_name='Администраторы',
+                index=False
+            )
+
+        output.seek(0)
+        return output
+    except Exception as e:
+        print(f"Ошибка при экспорте в Excel: {e}")
+        raise
+    finally:
+        await conn.close()

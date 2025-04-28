@@ -1,3 +1,5 @@
+import asyncpg
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
@@ -114,3 +116,80 @@ async def get_operations_report(user_id: int,
         return report
     finally:
         await conn.close()
+
+# ---- Функции для работы с БД ----
+async def add_operation_to_db(user_id: int, op_type: str, amount: float, category: str, comment: str) -> bool:
+    """Добавление операции в базу данных"""
+    try:
+        conn = await asyncpg.connect(
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            database=os.getenv('DB_NAME'),
+            host=os.getenv('DB_HOST'),
+            port=int(os.getenv('DB_PORT', 5432))
+        )
+
+        async with conn.transaction():
+            # Добавляем операцию
+            await conn.execute(
+                '''
+                INSERT INTO operations 
+                (user_id, type, amount, category, comment, operation_date)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ''',
+                user_id, op_type, amount, category, comment, datetime.now()
+            )
+
+            # Обновляем активность пользователя
+            await conn.execute(
+                '''
+                UPDATE users 
+                SET last_activity_date = $1
+                WHERE user_id = $2
+                ''',
+                datetime.now(), user_id
+            )
+
+        return True
+    except Exception as e:
+        print(f"Ошибка при добавлении операции: {e}")
+        return False
+    finally:
+        if conn:
+            await conn.close()
+
+
+async def get_operations(user_id: int, period: Optional[str] = None) -> List[Dict]:
+    """Получение операций пользователя из БД"""
+    try:
+        conn = await asyncpg.connect(
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            database=os.getenv('DB_NAME'),
+            host=os.getenv('DB_HOST'),
+            port=int(os.getenv('DB_PORT', 5432)))
+
+        query = '''
+        SELECT type, amount, category, comment, operation_date 
+        FROM operations 
+        WHERE user_id = $1
+        '''
+        params = [user_id]
+
+        if period:
+            now = datetime.now()
+            if period == 'day':
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'week':
+                start_date = now - timedelta(days=now.weekday())
+                start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'month':
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+            query += ' AND operation_date >= $2'
+            params.append(start_date)
+
+        return await conn.fetch(query, *params)
+    finally:
+        if conn:
+            await conn.close()

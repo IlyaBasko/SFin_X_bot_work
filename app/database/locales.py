@@ -53,13 +53,6 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'statistics_help_desc': "подробная статистика по операциям",
             'export_help_desc': "экспорт данных в CSV-файл",
             'help_footer': "Выберите нужный пункт в меню для работы с функцией.",
-            'select_category_for_limit': 'Выберите категорию для установки лимита:',
-            'current_limit_info': 'Текущий лимит для "{category}": {limit:.2f}',
-            'enter_new_limit': 'Введите новый лимит (число):',
-            'limit_set_success': '✅ Лимит для "{category}" установлен: {limit}',
-            'no_expense_categories': 'У вас пока нет категорий расходов',
-            'invalid_category': 'Пожалуйста, выберите категорию из списка',
-
 
             # Настройки
             'change_currency': "Изменить валюту",
@@ -149,12 +142,6 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'statistics_help_desc': "detailed operations statistics",
             'export_help_desc': "export data to CSV file",
             'help_footer': "Select menu item to work with the function.",
-            'select_category_for_limit': 'Select category to set limit:',
-            'current_limit_info': 'Current limit for "{category}": {limit:.2f}',
-            'enter_new_limit': 'Enter new limit (number):',
-            'limit_set_success': '✅ Limit for "{category}" set to: {limit}',
-            'no_expense_categories': 'You have no expense categories yet',
-            'invalid_category': 'Please select category from the list',
 
             # Настройки
             'change_currency': "Change currency",

@@ -89,7 +89,16 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             # Системные сообщения
             'operation_added': "✅ Операция добавлена",
             'settings_saved': "Настройки сохранены",
-            'select_option': "Выберите опцию:"
+            'select_option': "Выберите опцию:",
+
+            # Помидорка
+            'pomodoro': "🍅 Помидорка",
+            'pomodoro_start': "Таймер 'Помидорка' запущен! 25 минут работы ⏳",
+            'pomodoro_work_end': "Время работы закончилось! Отдохните 5 минут 😌",
+            'pomodoro_break_end': "Перерыв окончен! Время работать снова 💪",
+            'pomodoro_stop': "Таймер 'Помидорка' остановлен",
+            'pomodoro_already_running': "Таймер уже запущен",
+            'pomodoro_not_running': "Таймер не запущен",
 
         },
         'en': {
@@ -178,7 +187,16 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             # Системные сообщения
             'operation_added': "✅ Operation added",
             'settings_saved': "Settings saved",
-            'select_option': "Select option:"
+            'select_option': "Select option:",
+
+            # Pomodoro
+            'pomodoro': "🍅 Pomodoro",
+            'pomodoro_start': "Pomodoro timer started! 25 minutes of work ⏳",
+            'pomodoro_work_end': "Work time is over! Take a 5-minute break 😌",
+            'pomodoro_break_end': "Break is over! Time to work again 💪",
+            'pomodoro_stop': "Pomodoro timer stopped",
+            'pomodoro_already_running': "Timer is already running",
+            'pomodoro_not_running': "Timer is not running",
         }
     }
     return translations.get(language_code, translations['ru']).get(text_key, text_key)

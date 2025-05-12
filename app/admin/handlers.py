@@ -4,11 +4,13 @@ from aiogram.filters import Command
 from datetime import datetime
 from io import BytesIO
 import pandas as pd
+import os
 
 from app.database.models import (
     is_admin, get_all_users_stats, export_all_to_excel,
-    get_user_stats, add_admin
+    get_user_stats, add_admin, get_user_language
 )
+from app.keyboards.kbReply import get_localized_keyboard
 
 router = Router()
 
@@ -22,7 +24,6 @@ async def admin_panel(message: Message):
     await message.answer(
         "👑 Админ-панель:\n"
         "/stats - Общая статистика\n"
-        "/export - Экспорт всех данных\n"
         "/user_stats [id] - Статистика пользователя\n"
         "/add_admin [id] - Добавить администратора",
         reply_markup=ReplyKeyboardMarkup(
@@ -66,26 +67,29 @@ async def export_data(message: Message):
     if not await is_admin(message.from_user.id):
         return
 
-    try:
-        # Показываем уведомление о начале экспорта
-        msg = await message.answer("🔄 Подготовка данных для экспорта...")
+    msg = await message.answer("🔄 Создание отчета...")
 
-        # Получаем Excel файл
-        excel_file = await export_all_to_excel()
+    try:
+        # Генерируем файл
+        excel_data = await export_all_to_excel()
+
+        # Сохраняем временный файл
+        filename = f"export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        with open(filename, 'wb') as f:
+            f.write(excel_data.getbuffer())
 
         # Отправляем файл
         await message.answer_document(
-            FSInputFile(
-                excel_file,
-                filename=f"finance_export_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
-            ),
-            caption="📊 Полный экспорт данных"
+            FSInputFile(filename),
+            caption="📊 Финансовый отчет"
         )
 
-        # Удаляем уведомление
-        await msg.delete()
     except Exception as e:
-        await message.answer(f"❌ Ошибка при экспорте: {str(e)}")
+        await message.answer(f"❌ Ошибка экспорта: {str(e)}")
+    finally:
+        await msg.delete()
+        if 'filename' in locals() and os.path.exists(filename):
+            os.remove(filename)
 
 
 @router.message(Command("user_stats"))
@@ -131,10 +135,14 @@ async def add_admin_handler(message: Message):
     except (IndexError, ValueError):
         await message.answer("Используйте: /add_admin [user_id]")
 
+
 @router.message(F.text == "🔙 Выход")
 async def exit_admin_panel(message: Message):
     """Обработчик кнопки Выход"""
+    user_id = message.from_user.id
+    language = await get_user_language(user_id)
     await message.answer(
         "Вы вышли из админ-панели",
-        reply_markup=ReplyKeyboardRemove()  # Убираем клавиатуру
+        # reply_markup=ReplyKeyboardRemove()  # Убираем клавиатуру
+        reply_markup=get_localized_keyboard(language)
     )

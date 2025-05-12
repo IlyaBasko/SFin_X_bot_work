@@ -102,6 +102,15 @@ async def init_db():
             )
             ''')
 
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS admins (
+                user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+                username TEXT,
+                added_at TIMESTAMP DEFAULT NOW(),
+                is_superadmin BOOLEAN DEFAULT FALSE
+            )
+        ''')
+
         print("База данных успешно инициализирована")
     except Exception as e:
         print(f"Ошибка инициализации БД PostgreSQL: {str(e)}")
@@ -393,31 +402,29 @@ async def cleanup_file(filename: str):
         print(f"Ошибка при удалении файла: {e}")
 
 
-async def create_admin_table():
-    """Создаем таблицу администраторов"""
-    conn = await get_connection()
-    try:
-        await conn.execute('''
-            CREATE TABLE IF NOT EXISTS admins (
-                user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
-                username TEXT,
-                added_at TIMESTAMP DEFAULT NOW(),
-                is_superadmin BOOLEAN DEFAULT FALSE
-            )
-        ''')
-    finally:
-        await conn.close()
-
-
 async def add_admin(user_id: int, username: str, is_superadmin: bool = False):
     """Добавление администратора"""
     conn = await get_connection()
     try:
+        # Проверяем существование пользователя
+        user_exists = await conn.fetchval(
+            'SELECT 1 FROM users WHERE user_id = $1',
+            user_id
+        )
+
+        if not user_exists:
+            await add_user(user_id, username, '', '')  # Добавляем базовую информацию
+
         await conn.execute('''
             INSERT INTO admins (user_id, username, is_superadmin)
             VALUES ($1, $2, $3)
-            ON CONFLICT (user_id) DO NOTHING
+            ON CONFLICT (user_id) DO UPDATE
+            SET username = EXCLUDED.username,
+                is_superadmin = EXCLUDED.is_superadmin
         ''', user_id, username, is_superadmin)
+    except Exception as e:
+        print(f"Ошибка при добавлении администратора: {e}")
+        raise
     finally:
         await conn.close()
 
@@ -430,6 +437,17 @@ async def is_admin(user_id: int) -> bool:
             'SELECT 1 FROM admins WHERE user_id = $1',
             user_id
         ) is not None
+    finally:
+        await conn.close()
+
+async def is_superadmin(user_id: int) -> bool:
+    """Проверка прав суперадминистратора"""
+    conn = await get_connection()
+    try:
+        return await conn.fetchval(
+            'SELECT is_superadmin FROM admins WHERE user_id = $1',
+            user_id
+        ) or False
     finally:
         await conn.close()
 
@@ -489,33 +507,37 @@ async def export_all_to_excel() -> BytesIO:
     try:
         output = BytesIO()
 
-        # Получаем данные
-        users = await conn.fetch("SELECT * FROM users")
-        operations = await conn.fetch("SELECT * FROM operations")
-        admins = await conn.fetch("SELECT * FROM admins")
+        # Создаем Excel writer с настройками
+        with pd.ExcelWriter(
+            output,
+            engine='xlsxwriter',
+            engine_kwargs={'options': {'strings_to_numbers': True}}
+        ) as writer:
+            workbook = writer.book
 
-        # Создаем Excel файл
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:  # Используем openpyxl
             # Лист с пользователями
-            pd.DataFrame(users).to_excel(
-                writer,
-                sheet_name='Пользователи',
-                index=False
-            )
+            users = await conn.fetch("SELECT * FROM users")
+            if users:
+                df_users = pd.DataFrame(users)
+                df_users.to_excel(writer, sheet_name='Пользователи', index=False)
+                worksheet = writer.sheets['Пользователи']
+                worksheet.set_column('A:F', 20)  # Ширина колонок
 
             # Лист с операциями
-            pd.DataFrame(operations).to_excel(
-                writer,
-                sheet_name='Операции',
-                index=False
-            )
+            operations = await conn.fetch("SELECT * FROM operations")
+            if operations:
+                df_ops = pd.DataFrame(operations)
+                df_ops.to_excel(writer, sheet_name='Операции', index=False)
+                worksheet = writer.sheets['Операции']
+                worksheet.set_column('A:G', 15)
 
             # Лист с администраторами
-            pd.DataFrame(admins).to_excel(
-                writer,
-                sheet_name='Администраторы',
-                index=False
-            )
+            admins = await conn.fetch("SELECT * FROM admins")
+            if admins:
+                df_admins = pd.DataFrame(admins)
+                df_admins.to_excel(writer, sheet_name='Администраторы', index=False)
+                worksheet = writer.sheets['Администраторы']
+                worksheet.set_column('A:D', 20)
 
         output.seek(0)
         return output

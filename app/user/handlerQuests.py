@@ -1,5 +1,6 @@
 import os
-from aiogram import Router, F
+import asyncio
+from aiogram import Router, F, Bot
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -7,12 +8,12 @@ from decimal import Decimal, InvalidOperation
 
 from app.database.locales import get_localized_text
 from app.database.requests import add_operation_to_db
-from app.keyboards.kbReply import (operation_category_keyboard, get_localized_keyboard,
+from app.keyboards.kbReply import (operation_category_keyboard, get_localized_keyboard, pomodoro_keyboard,
                                    settings_keyboard, currency_keyboard, language_keyboard, report_period_keyboard)
 from app.database.models import (update_user_activity, export_to_csv, get_user_stats,
                                  MAX_FILE_SIZE, get_user_currency_settings, set_user_language,
-                                 set_user_currency, get_connection, convert_amount,
-                                 get_user_language, set_notification_status, get_notification_status)
+                                 set_user_currency, get_user_language,
+                                  set_notification_status, get_notification_status)
 from aiogram.types import FSInputFile
 
 from app.user.quests import calculate_balance, convert_user_operations
@@ -41,6 +42,9 @@ class LanguageStates(StatesGroup):
 
 class NotificationStates(StatesGroup):
     waiting_choice = State()
+
+class PomodoroStates(StatesGroup):
+    pomodoro_active = State()
 
 # ---- Обработчики команд ----
 @router.message((F.text == get_localized_text('ru', 'back')) | (F.text == get_localized_text('en', 'back')))  # Назад
@@ -458,3 +462,95 @@ async def process_notification_choice(message: Message, state: FSMContext):
         )
 
     await state.clear()
+
+# Добавим словарь для хранения активных таймеров
+active_pomodoros = {}
+
+async def start_pomodoro_timer(user_id: int, chat_id: int, bot: Bot, language: str):
+    """Функция для запуска помидорки (общая логика)"""
+    if user_id in active_pomodoros:
+        return False  # Уже запущено
+
+    active_pomodoros[user_id] = True
+
+    # Отправляем сообщение о начале
+    await bot.send_message(
+        chat_id,
+        get_localized_text(language, 'pomodoro_start'),
+        reply_markup=pomodoro_keyboard(language)
+    )
+
+    # Запускаем таймер
+    asyncio.create_task(pomodoro_timer(user_id, chat_id, bot, language))
+    return True
+
+
+async def pomodoro_timer(user_id: int, chat_id: int, bot: Bot, language: str):
+    """Функция таймера помидорки"""
+    try:
+        while user_id in active_pomodoros:
+            # Рабочее время
+            await asyncio.sleep(25 * 60)
+
+            if user_id not in active_pomodoros:
+                break
+
+            # Перерыв
+            await bot.send_message(
+                chat_id,
+                get_localized_text(language, 'pomodoro_work_end'),
+                reply_markup=pomodoro_keyboard(language)
+            )
+            await asyncio.sleep(5 * 60)
+
+            if user_id not in active_pomodoros:
+                break
+
+            # Конец цикла
+            await bot.send_message(
+                chat_id,
+                get_localized_text(language, 'pomodoro_break_end'),
+                reply_markup=pomodoro_keyboard(language)
+            )
+
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        print(f"Pomodoro timer error: {e}")
+    finally:
+        if user_id in active_pomodoros:
+            del active_pomodoros[user_id]
+
+@router.message((F.text == get_localized_text('ru', 'pomodoro')) |
+               (F.text == get_localized_text('en', 'pomodoro')))
+async def start_pomodoro(message: Message, state: FSMContext):
+    """Запуск помидорки"""
+    user_id = message.from_user.id
+    language = await get_user_language(user_id)
+
+    success = await start_pomodoro_timer(user_id, message.chat.id, message.bot, language)
+
+    if not success:
+        await message.answer(get_localized_text(language, 'pomodoro_already_running'))
+    else:
+        await state.set_state(PomodoroStates.pomodoro_active)
+
+@router.message(F.text.contains("⏹"))
+async def stop_pomodoro(message: Message, state: FSMContext):
+    """Остановка помидорки"""
+    user_id = message.from_user.id
+    language = await get_user_language(user_id)
+
+    if user_id not in active_pomodoros:
+        await message.answer(get_localized_text(language, 'pomodoro_not_running'))
+        return
+
+    # Удаляем из активных таймеров
+    if user_id in active_pomodoros:
+        del active_pomodoros[user_id]
+
+    await state.clear()
+    await message.answer(
+        get_localized_text(language, 'pomodoro_stop'),
+        reply_markup=get_localized_keyboard(language)
+    )

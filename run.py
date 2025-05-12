@@ -6,22 +6,26 @@ from app.admin.handlers import router as admin_router
 from app.user import handlerCommand, handlerQuests
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
-from app.database.models import init_db, create_admin_table, add_admin
+from app.database.models import init_db, add_admin
 
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+SUPERADMIN_ID = int(os.getenv("SUPERADMIN_ID"))
 
+async def shutdown(dispatcher: Dispatcher, bot: Bot):
+    """Обработка завершения работы"""
+    await dispatcher.storage.close()
+    await bot.session.close()
 
 async def main():
     # Инициализация базы данных перед запуском бота
     try:
         await init_db()
-        await create_admin_table()  # Создаем таблицу администраторов
 
         # Добавляем первого администратора (ваш ID)
-        await add_admin(728823908, "admin", is_superadmin=True)
+        await add_admin(SUPERADMIN_ID, "admin", is_superadmin=True)
     except Exception as e:
         print(f"Ошибка инициализации БД: {e}")
         return
@@ -37,7 +41,10 @@ async def main():
 
     )
     await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await shutdown(dp, bot)
 
 
 if __name__ == "__main__":

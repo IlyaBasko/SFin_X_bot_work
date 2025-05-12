@@ -63,6 +63,7 @@ def get_localized_keyboard(language_code: str) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=get_localized_text(language_code, 'settings'))
             ],
             [
+                KeyboardButton(text=get_localized_text(language_code, 'pomodoro')),
                 KeyboardButton(text=get_localized_text(language_code, 'help'))
             ],
             [
@@ -79,6 +80,16 @@ def report_period_keyboard(language_code: str) -> ReplyKeyboardMarkup:
             [KeyboardButton(text=get_localized_text(language_code, 'daily_report'))],
             [KeyboardButton(text=get_localized_text(language_code, 'weekly_report'))],
             [KeyboardButton(text=get_localized_text(language_code, 'monthly_report'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'back'))]
+        ],
+        resize_keyboard=True
+    )
+
+def pomodoro_keyboard(language_code: str) -> ReplyKeyboardMarkup:
+    """Клавиатура для управления помидоркой"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=f"⏹ {get_localized_text(language_code, 'stop')}")],
             [KeyboardButton(text=get_localized_text(language_code, 'back'))]
         ],
         resize_keyboard=True

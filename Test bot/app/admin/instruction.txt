@@ -1,0 +1,26 @@
+Создание виртуального окружения: python3 -m venv .venv
+Удаление виртуального окружения: rm -rf .venv
+Активация виртуального окружения: source .venv/bin/activate
+Запустить бота: python3 run.py
+Остановить бота: комб. клавиш ctrl + c
+
+Для работы бота установить библиотеки:
+pip install aiogram
+pip install sqlalchemy aiosqlite
+pip install aiogram python-dotenv
+pip install aiofiles aiosqlite
+pip install --upgrade aiogram
+pip install asyncpg aiofiles
+pip install dateparser
+pip install apscheduler
+pip install aiohttp
+
+База данных: PostgreSQL
+Приложение для базы данных: VS Code
+
+Для БД (используется в app.database.models.py, app.database.requets.py; хранится в файле .env):
+DB_USER=sfinx_user
+DB_PASSWORD=sfinxpassword
+DB_NAME=SFin_X_bot
+DB_HOST=localhost
+DB_PORT=5432

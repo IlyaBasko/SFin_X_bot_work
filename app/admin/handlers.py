@@ -2,8 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, FSInputFile, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from aiogram.filters import Command
 from datetime import datetime
-from io import BytesIO
-import pandas as pd
+
 import os
 
 from app.database.models import (

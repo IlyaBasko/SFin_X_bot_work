@@ -1,7 +1,7 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher
-
+from app.utils.scheduler import start_scheduler
 from app.admin.handlers import router as admin_router
 from app.user import handlerCommand, handlerQuests
 from aiogram.client.default import DefaultBotProperties
@@ -38,8 +38,8 @@ async def main():
         handlerCommand.router,
         handlerQuests.router,
         admin_router
-
     )
+    start_scheduler(bot)
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(bot)

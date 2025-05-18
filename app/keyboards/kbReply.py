@@ -64,6 +64,9 @@ def get_localized_keyboard(language_code: str) -> ReplyKeyboardMarkup:
             ],
             [
                 KeyboardButton(text=get_localized_text(language_code, 'pomodoro')),
+                KeyboardButton(text=get_localized_text(language_code, 'goals'))
+            ],
+            [
                 KeyboardButton(text=get_localized_text(language_code, 'help'))
             ],
             [
@@ -90,6 +93,17 @@ def pomodoro_keyboard(language_code: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=f"⏹ {get_localized_text(language_code, 'stop')}")],
+            [KeyboardButton(text=get_localized_text(language_code, 'back'))]
+        ],
+        resize_keyboard=True
+    )
+
+def goals_keyboard(language_code: str) -> ReplyKeyboardMarkup:
+    """Клавиатура для работы с целями"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=get_localized_text(language_code, 'add_goal'))],
+            [KeyboardButton(text=get_localized_text(language_code, 'view_goals'))],
             [KeyboardButton(text=get_localized_text(language_code, 'back'))]
         ],
         resize_keyboard=True

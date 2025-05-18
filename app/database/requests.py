@@ -193,3 +193,30 @@ async def get_operations(user_id: int, period: Optional[str] = None) -> List[Dic
     finally:
         if conn:
             await conn.close()
+
+async def get_goals_for_all_users():
+    """
+    Возвращает словарь: {user_id: [список целей]}
+    """
+    conn = await get_connection()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT g.*, u.user_id 
+            FROM goals g
+            JOIN users u ON g.user_id = u.user_id
+            WHERE NOT g.is_completed
+            ORDER BY u.user_id, g.created_at DESC
+            """
+        )
+
+        # Группируем по user_id
+        result = {}
+        for row in rows:
+            user_id = row['user_id']
+            if user_id not in result:
+                result[user_id] = []
+            result[user_id].append(dict(row))
+        return result
+    finally:
+        await conn.close()

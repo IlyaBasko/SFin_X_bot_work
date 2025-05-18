@@ -5,15 +5,15 @@ def get_localized_text(language_code: str, text_key: str) -> str:
     translations: Dict[str, Dict[str, str]] = {
         'ru': {
             # Главное меню
-            'balance': "Баланс",
+            'balance': "💰 Баланс",
             'report': "Отчёт",
             'add_operation': "Добавить операцию",
-            'settings': "Настройки",
-            'back': "НАЗАД",
+            'settings': "⚙️ Настройки",
+            'back': "🔙 НАЗАД",
             'add_expense': "Добавить расход",
             'add_income': "Добавить доход",
             'select_category': "Выберите категорию:",
-            'select_report_period': "Выберите период для отчета",
+            'select_report_period': "📅 Выберите период для отчета",
             'report_for_period': "Отчет за {period}",
             'income_by_category': "Доходы по категориям",
             'expense_by_category': "Расходы по категориям",
@@ -28,7 +28,7 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'english_language': "English",  # Оставляем English для единообразия
             'language_changed': "✅ Язык изменен на Русский",
             'amount': "Сумма",
-            'category': "Категория",
+            'category': "🗂 Категория",
             'comment': "Комментарий",
             'day': "день",
             'week': "неделю",
@@ -57,8 +57,8 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             # Настройки
             'change_currency': "Изменить валюту",
             'set_limits': "Установить лимиты",
-            'language': "Язык",
-            'notifications': "Уведомления",
+            'language': "🌍 Язык",
+            'notifications': "📢 Уведомления",
 
             # Команды
             'welcome_message': (
@@ -100,14 +100,30 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'pomodoro_already_running': "Таймер уже запущен",
             'pomodoro_not_running': "Таймер не запущен",
 
+            # Планирование целей
+            'goals': '🎯 Цели',
+            'select_goal_action': 'Выберите действие с целями:',
+            'add_goal': 'Добавить цель',
+            'view_goals': 'Посмотреть цели',
+            'goal_name': 'Как называется цель?',
+            'goal_target_amount': 'Сколько нужно накопить?',
+            'goal_optional_deadline': 'Когда хотите достичь цели? (или напишите "нет")',
+            'goal_created': '✅ Цель успешно создана!',
+            'no_goals_yet': 'У вас пока нет целей.',
+            'goal_reminder_title': 'Напоминание о цели',
+            'goal_progress': 'Прогресс по цели',
+            'goal_days_left': 'Осталось дней: {days}',
+            'goal_deadline_passed': 'Срок цели истёк!',
+            'goal_completed': '🎉 Поздравляем! Вы достигли цели "{goal_name}"!'
+
         },
         'en': {
             # Главное меню
-            'balance': "Balance",
+            'balance': "💰 Balance",
             'report': "Report",
             'add_operation': "Add operation",
-            'settings': "Settings",
-            'back': "BACK",
+            'settings': "⚙️ Settings",
+            'back': "🔙 BACK",
             'add_expense': "Add expense",
             'add_income': "Add income",
             'select_category': "Select category:",
@@ -122,11 +138,11 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'currency_not_changed': "Currency not changed",
             'export': "Export",
             'statistics': "Statistics",
-            'russian_language': "Russian",
-            'english_language': "English",
+            'russian_language': "🇷🇺 Russian",
+            'english_language': "🇺🇸 English",
             'language_changed': "✅ Language changed to English",
             'amount': "Amount",
-            'category': "Category",
+            'category': "🗂 Category",
             'comment': "Comment",
             'day': "day",
             'week': "week",
@@ -155,8 +171,8 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             # Настройки
             'change_currency': "Change currency",
             'set_limits': "Set limits",
-            'language': "Language",
-            'notifications': "Notifications",
+            'language': "🌍 Language",
+            'notifications': "📢 Notifications",
 
             # Команды
             'welcome_message': (
@@ -197,6 +213,22 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'pomodoro_stop': "Pomodoro timer stopped",
             'pomodoro_already_running': "Timer is already running",
             'pomodoro_not_running': "Timer is not running",
+
+            # Планирование целей
+            'goals': '🎯 Goals',
+            'select_goal_action': 'Select a goal action:',
+            'add_goal': 'Add goal',
+            'view_goals': 'View goals',
+            'goal_name': 'What is the goal?',
+            'goal_target_amount': 'How much do you need to save?',
+            'goal_optional_deadline': 'When would you like to reach this goal? (or write "no")',
+            'goal_created': '✅ Goal successfully created!',
+            'no_goals_yet': 'You have no goals yet.',
+            'goal_reminder_title': 'Goal Reminder',
+            'goal_progress': 'Goal progress',
+            'goal_days_left': 'Days left: {days}',
+            'goal_deadline_passed': 'Deadline has passed!',
+            'goal_completed': '🎉 Congratulations! You have reached your goal "{goal_name}"!'
         }
     }
     return translations.get(language_code, translations['ru']).get(text_key, text_key)

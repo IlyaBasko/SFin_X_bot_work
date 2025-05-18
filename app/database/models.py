@@ -1,13 +1,14 @@
 import os
 import csv
+import aiohttp
 from io import BytesIO
 import pandas as pd
-
+from aiogram import Bot
 import asyncpg
 import aiofiles
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB лимит Telegram
 
@@ -109,6 +110,24 @@ async def init_db():
                 added_at TIMESTAMP DEFAULT NOW(),
                 is_superadmin BOOLEAN DEFAULT FALSE
             )
+        ''')
+
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS goals (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT REFERENCES users(user_id),
+                name TEXT NOT NULL,
+                target_amount DECIMAL(12, 2) NOT NULL,
+                current_amount DECIMAL(12, 2) DEFAULT 0,
+                deadline TIMESTAMP,
+                is_completed BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+
+        await conn.execute('''
+            CREATE INDEX IF NOT EXISTS idx_goals_user 
+            ON goals(user_id)
         ''')
 
         print("База данных успешно инициализирована")
@@ -315,25 +334,46 @@ async def get_user_currency_settings(user_id: int) -> dict:
 
 
 async def update_currency_rates():
-    # Здесь можно реализовать получение актуальных курсов с ЦБ РФ или другого API
-    rates = {
-        'USD': 90.50,  # 1 USD = 90.50 RUB
-        'EUR': 98.75,  # 1 EUR = 98.75 RUB
-        'RUB': 1.0
-    }
+    """
+    Получает актуальные курсы валют с сайта ЦБ РФ и сохраняет их в БД.
+    """
+    url = "https://www.cbr.ru/scripts/XML_daily.asp "
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status != 200:
+                print(f"Ошибка загрузки курсов: {response.status}")
+                return
 
-    conn = await get_connection()
-    try:
-        for currency, rate in rates.items():
-            await conn.execute('''
-            INSERT INTO currencies (code, rate_to_rub, updated_at)
-            VALUES ($1, $2, NOW())
-            ON CONFLICT (code) DO UPDATE
-            SET rate_to_rub = EXCLUDED.rate_to_rub,
-                updated_at = NOW()
-            ''', currency, Decimal(rate))
-    finally:
-        await conn.close()
+            text = await response.text()
+            from xml.etree import ElementTree as ET
+            root = ET.fromstring(text)
+
+            rates = {'RUB': Decimal('1.0')}  # RUB всегда равен 1
+
+            for valute in root.findall('Valute'):
+                char_code = valute.find('CharCode').text
+                value = valute.find('Value').text.replace(',', '.')
+                nominal = valute.find('Nominal').text
+                try:
+                    rate_rub = Decimal(value) / Decimal(nominal)
+                    rates[char_code] = rate_rub
+                except (InvalidOperation, TypeError):
+                    continue
+
+            conn = await get_connection()
+            try:
+                for currency, rate in rates.items():
+                    await conn.execute('''
+                        INSERT INTO currencies (code, rate_to_rub, updated_at)
+                        VALUES ($1, $2, NOW())
+                        ON CONFLICT (code) DO UPDATE
+                        SET rate_to_rub = EXCLUDED.rate_to_rub,
+                            updated_at = NOW()
+                    ''', currency, rate)
+                print("Курсы валют успешно обновлены")
+            finally:
+                await conn.close()
+
 
 async def set_user_language(user_id: int, language_code: str):
     conn = await get_connection()
@@ -348,6 +388,7 @@ async def set_user_language(user_id: int, language_code: str):
     finally:
         await conn.close()
 
+
 async def get_user_language(user_id: int) -> str:
     conn = await get_connection()
     try:
@@ -359,6 +400,7 @@ async def get_user_language(user_id: int) -> str:
     finally:
         await conn.close()
 
+
 async def convert_amount(amount: Decimal, from_currency: str, to_currency: str) -> Decimal:
     if from_currency == to_currency:
         return amount
@@ -368,6 +410,7 @@ async def convert_amount(amount: Decimal, from_currency: str, to_currency: str) 
 
     # Конвертируем через RUB как базовую валюту
     return (amount / from_rate) * to_rate
+
 
 async def set_notification_status(user_id: int, enabled: bool):
     conn = await get_connection()
@@ -382,6 +425,7 @@ async def set_notification_status(user_id: int, enabled: bool):
     finally:
         await conn.close()
 
+
 async def get_notification_status(user_id: int) -> bool:
     conn = await get_connection()
     try:
@@ -392,6 +436,7 @@ async def get_notification_status(user_id: int) -> bool:
         return status if status is not None else True  # По умолчанию включены
     finally:
         await conn.close()
+
 
 async def cleanup_file(filename: str):
     """Удаление временного файла"""
@@ -439,6 +484,7 @@ async def is_admin(user_id: int) -> bool:
         ) is not None
     finally:
         await conn.close()
+
 
 async def is_superadmin(user_id: int) -> bool:
     """Проверка прав суперадминистратора"""
@@ -509,9 +555,9 @@ async def export_all_to_excel() -> BytesIO:
 
         # Создаем Excel writer с настройками
         with pd.ExcelWriter(
-            output,
-            engine='xlsxwriter',
-            engine_kwargs={'options': {'strings_to_numbers': True}}
+                output,
+                engine='xlsxwriter',
+                engine_kwargs={'options': {'strings_to_numbers': True}}
         ) as writer:
             workbook = writer.book
 
@@ -544,5 +590,82 @@ async def export_all_to_excel() -> BytesIO:
     except Exception as e:
         print(f"Ошибка при экспорте в Excel: {e}")
         raise
+    finally:
+        await conn.close()
+
+
+# Функции для планирования "Цели"
+async def add_goal(user_id: int, name: str, target_amount: Decimal, deadline: datetime = None):
+    """Создание новой цели"""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            '''
+            INSERT INTO goals (user_id, name, target_amount, deadline)
+            VALUES ($1, $2, $3, $4)
+            ''',
+            user_id, name, target_amount, deadline
+        )
+    finally:
+        await conn.close()
+
+
+async def get_goals(user_id: int) -> List[Dict]:
+    """Получить список целей пользователя"""
+    conn = await get_connection()
+    try:
+        rows = await conn.fetch(
+            'SELECT * FROM goals WHERE user_id = $1 AND NOT is_completed ORDER BY created_at DESC',
+            user_id
+        )
+        return [dict(row) for row in rows]
+    finally:
+        await conn.close()
+
+
+async def update_goal_progress(user_id: int, goal_id: int, amount: Decimal, bot: Bot):
+    conn = await get_connection()
+    try:
+        result = await conn.fetchrow(
+            'SELECT current_amount, target_amount, name FROM goals WHERE id = $1 AND user_id = $2',
+            goal_id, user_id
+        )
+        if not result:
+            return False
+
+        new_amount = result['current_amount'] + amount
+        is_completed = False
+        message_text = ""
+
+        if new_amount >= result['target_amount']:
+            new_amount = result['target_amount']
+            is_completed = True
+            message_text = f"🎉 Поздравляем! Вы достигли цели '{result['name']}'!"
+
+        await conn.execute(
+            '''
+            UPDATE goals SET current_amount = $1, is_completed = $2
+            WHERE id = $3 AND user_id = $4
+            ''',
+            new_amount, is_completed, goal_id, user_id
+        )
+
+        # Отправка уведомления, если цель завершена
+        if is_completed:
+            await bot.send_message(user_id, message_text)
+
+        return True
+    finally:
+        await conn.close()
+
+
+async def complete_goal(user_id: int, goal_id: int):
+    """Завершить цель вручную"""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            'UPDATE goals SET is_completed = TRUE, current_amount = target_amount WHERE id = $1 AND user_id = $2',
+            goal_id, user_id
+        )
     finally:
         await conn.close()

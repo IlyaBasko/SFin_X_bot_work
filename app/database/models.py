@@ -50,6 +50,10 @@ async def init_db():
             )
         ''')
 
+        await conn.execute('''
+            ALTER TABLE operations ADD COLUMN IF NOT EXISTS goal_id INT REFERENCES goals(id)
+        ''')
+
         # Создание индексов
         await conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_operations_user 

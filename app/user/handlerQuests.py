@@ -1,6 +1,5 @@
 import os
 import asyncio
-
 from aiogram import Router, F, Bot
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.state import State, StatesGroup
@@ -29,6 +28,7 @@ class AddOperation(StatesGroup):
     category = State()
     amount = State()
     comment = State()
+    choose_goal = State()
 
 
 class CurrencyStates(StatesGroup):
@@ -132,9 +132,9 @@ async def process_amount(message: Message, state: FSMContext):
 @router.message(AddOperation.comment)
 async def process_comment(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    language = await get_user_language(user_id)
     data = await state.get_data()
 
+    # Сохраняем операцию без привязки к цели
     await add_operation_to_db(
         user_id=user_id,
         op_type=data['category'],
@@ -143,21 +143,33 @@ async def process_comment(message: Message, state: FSMContext):
         comment=message.text
     )
 
-    # Обновляем прогресс по всем целям пользователя
-    goals = await get_goals(user_id)
-    for goal in goals:
-        await update_goal_progress(user_id, goal['id'], Decimal(data['original_amount']), message.bot)
+    language = await get_user_language(user_id)
 
-    settings = await get_user_currency_settings(user_id)
-    current_symbol = {"RUB": "₽", "USD": "$", "EUR": "€"}.get(settings['currency'], "₽")
-    response = (
-        f"{get_localized_text(language, 'operation_added')}\n"
-        f"{get_localized_text(language, 'amount')}: {data['amount']:.2f}{current_symbol}\n"
-        f"{get_localized_text(language, 'category')}: {data['category_name']}\n"
-        f"{get_localized_text(language, 'comment')}: {message.text}"
-    )
-    await message.answer(response, reply_markup=get_localized_keyboard(language))
-    await state.clear()
+    # Проверяем наличие целей
+    goals = await get_goals(user_id)
+
+    if len(goals) == 0:
+        # Нет целей — завершаем FSM
+        settings = await get_user_currency_settings(user_id)
+        current_symbol = {"RUB": "₽", "USD": "$", "EUR": "€"}.get(settings['currency'], "₽")
+        response = (
+            f"{get_localized_text(language, 'operation_added')}\n"
+            f"{get_localized_text(language, 'amount')}: {data['amount']:.2f}{current_symbol}\n"
+            f"{get_localized_text(language, 'category')}: {data['category_name']}\n"
+            f"{get_localized_text(language, 'comment')}: {message.text}"
+        )
+        await message.answer(response, reply_markup=get_localized_keyboard(language))
+        await state.clear()
+        return
+
+    # Есть цели — предлагаем выбор
+    buttons = [[KeyboardButton(text=goal['name'])] for goal in goals]
+    buttons.append([KeyboardButton(text=get_localized_text(language, 'skip_goal_linking'))])
+
+    keyboard = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    await message.answer(get_localized_text(language, 'choose_goal'), reply_markup=keyboard)
+    await state.set_state(AddOperation.choose_goal)
 
 
 @router.message(
@@ -656,3 +668,47 @@ async def cmd_view_goals(message: Message):
         status = f"✅ {percent}% ({goal['current_amount']} из {goal['target_amount']})"
         deadline = goal['deadline'].strftime("%d.%m.%Y") if goal['deadline'] else "нет"
         await message.answer(f"🎯 {goal['name']}\n📊 Прогресс: {status}\n📅 Срок: {deadline}")
+
+
+@router.message(AddOperation.choose_goal)
+async def choose_goal(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    data = await state.get_data()
+    language = await get_user_language(user_id)
+    goals = await get_goals(user_id)
+
+    # Проверяем, хочет ли пользователь пропустить выбор цели
+    if message.text == get_localized_text(language, 'skip_goal_linking'):
+        settings = await get_user_currency_settings(user_id)
+        current_symbol = {"RUB": "₽", "USD": "$", "EUR": "€"}.get(settings['currency'], "₽")
+        response = (
+            f"{get_localized_text(language, 'operation_added')}\n"
+            f"{get_localized_text(language, 'amount')}: {data['amount']:.2f}{current_symbol}\n"
+            f"{get_localized_text(language, 'category')}: {data['category_name']}\n"
+            f"{get_localized_text(language, 'comment')}: {message.text}"
+        )
+        await message.answer(
+            get_localized_text(language, 'goal_skipped'),
+            reply_markup=get_localized_keyboard(language)
+        )
+        await message.answer(response, reply_markup=get_localized_keyboard(language))
+        await state.clear()
+        return
+
+    # Обычный выбор цели
+    selected_goal = next((g for g in goals if g['name'] == message.text), None)
+    if not selected_goal:
+        await message.answer("Выберите цель из предложенных")
+        return
+
+    success = await update_goal_progress(user_id, selected_goal['id'], Decimal(data['original_amount']), message.bot)
+
+    if success:
+        await message.answer(
+            f"Прогресс по цели '{selected_goal['name']}' обновлён",
+            reply_markup=get_localized_keyboard(await get_user_language(user_id))
+        )
+    else:
+        await message.answer("Не удалось обновить цель")
+
+    await state.clear()

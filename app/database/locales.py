@@ -114,7 +114,10 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'goal_progress': 'Прогресс по цели',
             'goal_days_left': 'Осталось дней: {days}',
             'goal_deadline_passed': 'Срок цели истёк!',
-            'goal_completed': '🎉 Поздравляем! Вы достигли цели "{goal_name}"!'
+            'goal_completed': '🎉 Поздравляем! Вы достигли цели "{goal_name}"!',
+            'choose_goal': 'К какой цели относится эта сумма?',
+            'skip_goal_linking': 'Не привязывать к целям',
+            'goal_skipped': 'Сумма добавлена в общий баланс'
 
         },
         'en': {
@@ -228,7 +231,10 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'goal_progress': 'Goal progress',
             'goal_days_left': 'Days left: {days}',
             'goal_deadline_passed': 'Deadline has passed!',
-            'goal_completed': '🎉 Congratulations! You have reached your goal "{goal_name}"!'
+            'goal_completed': '🎉 Congratulations! You have reached your goal "{goal_name}"!',
+            'choose_goal': 'Which goal does this amount belong to?',
+            'skip_goal_linking': 'Skip linking to goals',
+            'goal_skipped': 'The amount has been added to your general balance'
         }
     }
     return translations.get(language_code, translations['ru']).get(text_key, text_key)

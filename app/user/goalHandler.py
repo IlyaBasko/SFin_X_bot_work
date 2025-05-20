@@ -1,6 +1,6 @@
 import datetime
 from app.database.locales import get_localized_text
-from app.database.models import get_user_language 
+from app.database.models import get_user_language
 from app.database.requests import get_goals_for_all_users
 from aiogram import Bot
 

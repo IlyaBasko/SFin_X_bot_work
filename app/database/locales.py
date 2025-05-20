@@ -53,6 +53,29 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'statistics_help_desc': "подробная статистика по операциям",
             'export_help_desc': "экспорт данных в CSV-файл",
             'help_footer': "Выберите нужный пункт в меню для работы с функцией.",
+            'export': '📤 Экспорт данных',
+            'export_description': 'Экспортировать все операции в CSV файл',
+            'export_success': 'Ваши данные успешно экспортированы',
+            'export_failed': 'Не удалось создать экспорт',
+
+            # Напоминания
+            'reminders': '⏰ Напоминания',
+            'add_reminder': '➕ Добавить напоминание',
+            'my_reminders': '📋 Мои напоминания',
+            'reminder_added': '✅ Напоминание добавлено на {datetime}',
+            'choose_period': 'Выберите период:',
+            'enter_task': 'Введите задачу:',
+            'enter_time': 'Введите время напоминания (например, 15:30):',
+            'invalid_time': 'Некорректный формат времени. Введите в формате ЧЧ:ММ',
+            'past_time': 'Это время уже прошло! Введите корректное время.',
+            'today': 'На сегодня',
+            'tomorrow': 'На завтра',
+            'next_week': 'На неделю',
+            'reminder_notification': '⏰ Напоминание: {task}',
+            'no_reminders': 'У вас нет активных напоминаний',
+            'your_reminders': 'Ваши напоминания',
+
+
 
             # Настройки
             'change_currency': "Изменить валюту",
@@ -114,7 +137,11 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'goal_progress': 'Прогресс по цели',
             'goal_days_left': 'Осталось дней: {days}',
             'goal_deadline_passed': 'Срок цели истёк!',
-            'goal_completed': '🎉 Поздравляем! Вы достигли цели "{goal_name}"!'
+            'goal_completed': '🎉 Поздравляем! Вы достигли цели "{goal_name}"!',
+            'choose_goal': 'К какой цели относится эта сумма?',
+            'skip_goal_linking': 'Не привязывать к целям',
+            'goal_skipped': 'Сумма добавлена в общий баланс'
+
 
         },
         'en': {
@@ -167,6 +194,27 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'statistics_help_desc': "detailed operations statistics",
             'export_help_desc': "export data to CSV file",
             'help_footer': "Select menu item to work with the function.",
+            'export': '📤 Export data',
+            'export_description': 'Export all operations to CSV file',
+            'export_success': 'Your data has been successfully exported',
+            'export_failed': 'Failed to create export',
+
+            # Напоминания
+            'reminders': '⏰ Reminders',
+            'add_reminder': '➕ Add reminder',
+            'my_reminders': '📋 My reminders',
+            'reminder_added': '✅ Reminder added for {datetime}',
+            'choose_period': 'Choose period:',
+            'enter_task': 'Enter task:',
+            'enter_time': 'Enter reminder time (e.g. 15:30):',
+            'invalid_time': 'Invalid time format. Use HH:MM',
+            'past_time': 'This time has already passed! Enter a valid time.',
+            'today': 'Today',
+            'tomorrow': 'Tomorrow',
+            'next_week': 'Next week',
+            'reminder_notification': '⏰ Reminder: {task}',
+            'no_reminders': 'You have no active reminders',
+            'your_reminders': 'Your reminders',
 
             # Настройки
             'change_currency': "Change currency",
@@ -214,6 +262,7 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'pomodoro_already_running': "Timer is already running",
             'pomodoro_not_running': "Timer is not running",
 
+
             # Планирование целей
             'goals': '🎯 Goals',
             'select_goal_action': 'Select a goal action:',
@@ -228,7 +277,12 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'goal_progress': 'Goal progress',
             'goal_days_left': 'Days left: {days}',
             'goal_deadline_passed': 'Deadline has passed!',
-            'goal_completed': '🎉 Congratulations! You have reached your goal "{goal_name}"!'
+            'goal_completed': '🎉 Congratulations! You have reached your goal "{goal_name}"!',
+            'choose_goal': 'Which goal does this amount belong to?',
+            'skip_goal_linking': 'Skip linking to goals',
+            'goal_skipped': 'The amount has been added to your general balance'
+
+
         }
     }
     return translations.get(language_code, translations['ru']).get(text_key, text_key)

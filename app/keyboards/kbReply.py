@@ -21,7 +21,6 @@ def settings_keyboard(language_code: str):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=get_localized_text(language_code, 'change_currency'))],
-            [KeyboardButton(text=get_localized_text(language_code, 'set_limits'))],
             [KeyboardButton(text=get_localized_text(language_code, 'language'))],
             [KeyboardButton(text=get_localized_text(language_code, 'notifications'))],
             [KeyboardButton(text=get_localized_text(language_code, 'back'))]
@@ -67,11 +66,12 @@ def get_localized_keyboard(language_code: str) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=get_localized_text(language_code, 'goals'))
             ],
             [
+                KeyboardButton(text=get_localized_text(language_code, 'reminders')),
                 KeyboardButton(text=get_localized_text(language_code, 'help'))
             ],
             [
                 KeyboardButton(text=get_localized_text(language_code, 'back'))
-            ]
+            ],
         ],
         resize_keyboard=True
     )

@@ -118,7 +118,7 @@ async def get_operations_report(user_id: int,
         await conn.close()
 
 # ---- Функции для работы с БД ----
-async def add_operation_to_db(user_id: int, op_type: str, amount: float, category: str, comment: str) -> bool:
+async def add_operation_to_db(user_id: int, op_type: str, amount: float, category: str, comment: str, goal_id: Optional[int] = None) -> bool:
     """Добавление операции в базу данных"""
     try:
         conn = await asyncpg.connect(
@@ -134,10 +134,10 @@ async def add_operation_to_db(user_id: int, op_type: str, amount: float, categor
             await conn.execute(
                 '''
                 INSERT INTO operations 
-                (user_id, type, amount, category, comment, operation_date)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                (user_id, type, amount, category, comment, goal_id, operation_date)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ''',
-                user_id, op_type, amount, category, comment, datetime.now()
+                user_id, op_type, amount, category, comment,  goal_id, datetime.now()
             )
 
             # Обновляем активность пользователя

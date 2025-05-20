@@ -50,6 +50,10 @@ async def init_db():
             )
         ''')
 
+        await conn.execute('''
+            ALTER TABLE operations ADD COLUMN IF NOT EXISTS goal_id INT REFERENCES goals(id)
+        ''')
+
         # Создание индексов
         await conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_operations_user 
@@ -102,7 +106,7 @@ async def init_db():
                 updated_at TIMESTAMP DEFAULT NOW()
             )
             ''')
-        
+
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admins (
                 user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
@@ -128,6 +132,17 @@ async def init_db():
         await conn.execute('''
             CREATE INDEX IF NOT EXISTS idx_goals_user 
             ON goals(user_id)
+        ''')
+
+        await conn.execute('''
+        CREATE TABLE IF NOT EXISTS reminders (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT REFERENCES users(user_id),
+            task TEXT NOT NULL,
+            due_date TIMESTAMP NOT NULL,
+            is_completed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
         ''')
 
         print("База данных успешно инициализирована")
@@ -332,6 +347,7 @@ async def get_user_currency_settings(user_id: int) -> dict:
     finally:
         await conn.close()
 
+
 async def update_currency_rates():
     """
     Получает актуальные курсы валют с сайта ЦБ РФ и сохраняет их в БД.
@@ -373,6 +389,7 @@ async def update_currency_rates():
             finally:
                 await conn.close()
 
+
 async def set_user_language(user_id: int, language_code: str):
     conn = await get_connection()
     try:
@@ -386,6 +403,7 @@ async def set_user_language(user_id: int, language_code: str):
     finally:
         await conn.close()
 
+
 async def get_user_language(user_id: int) -> str:
     conn = await get_connection()
     try:
@@ -397,6 +415,7 @@ async def get_user_language(user_id: int) -> str:
     finally:
         await conn.close()
 
+
 async def convert_amount(amount: Decimal, from_currency: str, to_currency: str) -> Decimal:
     if from_currency == to_currency:
         return amount
@@ -406,6 +425,7 @@ async def convert_amount(amount: Decimal, from_currency: str, to_currency: str) 
 
     # Конвертируем через RUB как базовую валюту
     return (amount / from_rate) * to_rate
+
 
 async def set_notification_status(user_id: int, enabled: bool):
     conn = await get_connection()
@@ -420,6 +440,7 @@ async def set_notification_status(user_id: int, enabled: bool):
     finally:
         await conn.close()
 
+
 async def get_notification_status(user_id: int) -> bool:
     conn = await get_connection()
     try:
@@ -430,6 +451,7 @@ async def get_notification_status(user_id: int) -> bool:
         return status if status is not None else True  # По умолчанию включены
     finally:
         await conn.close()
+
 
 async def cleanup_file(filename: str):
     """Удаление временного файла"""
@@ -446,13 +468,13 @@ async def add_admin(user_id: int, username: str, is_superadmin: bool = False):
     try:
         # Проверяем существование пользователя
         user_exists = await conn.fetchval(
-            'SELECT 1 FROM users WHERE user_id = $1', 
+            'SELECT 1 FROM users WHERE user_id = $1',
             user_id
         )
-        
+
         if not user_exists:
             await add_user(user_id, username, '', '')  # Добавляем базовую информацию
-            
+
         await conn.execute('''
             INSERT INTO admins (user_id, username, is_superadmin)
             VALUES ($1, $2, $3)
@@ -477,6 +499,7 @@ async def is_admin(user_id: int) -> bool:
         ) is not None
     finally:
         await conn.close()
+
 
 async def is_superadmin(user_id: int) -> bool:
     """Проверка прав суперадминистратора"""
@@ -544,15 +567,15 @@ async def export_all_to_excel() -> BytesIO:
     conn = await get_connection()
     try:
         output = BytesIO()
-        
+
         # Создаем Excel writer с настройками
         with pd.ExcelWriter(
-            output,
-            engine='xlsxwriter',
-            engine_kwargs={'options': {'strings_to_numbers': True}}
+                output,
+                engine='xlsxwriter',
+                engine_kwargs={'options': {'strings_to_numbers': True}}
         ) as writer:
             workbook = writer.book
-            
+
             # Лист с пользователями
             users = await conn.fetch("SELECT * FROM users")
             if users:
@@ -585,6 +608,7 @@ async def export_all_to_excel() -> BytesIO:
     finally:
         await conn.close()
 
+
 # Функции для планирования "Цели"
 async def add_goal(user_id: int, name: str, target_amount: Decimal, deadline: datetime = None):
     """Создание новой цели"""
@@ -612,6 +636,7 @@ async def get_goals(user_id: int) -> List[Dict]:
         return [dict(row) for row in rows]
     finally:
         await conn.close()
+
 
 async def update_goal_progress(user_id: int, goal_id: int, amount: Decimal, bot: Bot):
     conn = await get_connection()
@@ -647,6 +672,7 @@ async def update_goal_progress(user_id: int, goal_id: int, amount: Decimal, bot:
         return True
     finally:
         await conn.close()
+
 
 async def complete_goal(user_id: int, goal_id: int):
     """Завершить цель вручную"""

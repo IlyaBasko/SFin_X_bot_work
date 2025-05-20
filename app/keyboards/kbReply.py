@@ -67,11 +67,12 @@ def get_localized_keyboard(language_code: str) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=get_localized_text(language_code, 'goals'))
             ],
             [
+                KeyboardButton(text=get_localized_text(language_code, 'reminders')),
                 KeyboardButton(text=get_localized_text(language_code, 'help'))
             ],
             [
                 KeyboardButton(text=get_localized_text(language_code, 'back'))
-            ]
+            ],
         ],
         resize_keyboard=True
     )

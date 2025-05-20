@@ -134,6 +134,17 @@ async def init_db():
             ON goals(user_id)
         ''')
 
+        await conn.execute('''
+        CREATE TABLE IF NOT EXISTS reminders (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT REFERENCES users(user_id),
+            task TEXT NOT NULL,
+            due_date TIMESTAMP NOT NULL,
+            is_completed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        ''')
+
         print("База данных успешно инициализирована")
     except Exception as e:
         print(f"Ошибка инициализации БД PostgreSQL: {str(e)}")

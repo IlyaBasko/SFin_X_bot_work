@@ -130,20 +130,23 @@ async def process_amount(message: Message, state: FSMContext):
 
 
 @router.message(AddOperation.comment)
+@router.message(AddOperation.comment)
 async def process_comment(message: Message, state: FSMContext):
     user_id = message.from_user.id
     data = await state.get_data()
+    language = await get_user_language(user_id)
 
-    # Сохраняем операцию без привязки к цели
+    # Используем комментарий как категорию, если он есть, иначе - стандартное название категории
+    effective_category = message.text if message.text else data['category_name']
+
+    # Сохраняем операцию (передаем effective_category как категорию)
     await add_operation_to_db(
         user_id=user_id,
         op_type=data['category'],
         amount=data['original_amount'],
-        category=data['category_name'],
+        category=effective_category,  # <-- Вот ключевое изменение!
         comment=message.text
     )
-
-    language = await get_user_language(user_id)
 
     # Проверяем наличие целей
     goals = await get_goals(user_id)
@@ -155,14 +158,16 @@ async def process_comment(message: Message, state: FSMContext):
         response = (
             f"{get_localized_text(language, 'operation_added')}\n"
             f"{get_localized_text(language, 'amount')}: {data['amount']:.2f}{current_symbol}\n"
-            f"{get_localized_text(language, 'category')}: {data['category_name']}\n"
-            f"{get_localized_text(language, 'comment')}: {message.text}"
+            f"{get_localized_text(language, 'category')}: {effective_category}\n"  # <-- Используем effective_category
         )
+        if message.text:
+            response += f"{get_localized_text(language, 'comment')}: {message.text}"
+
         await message.answer(response, reply_markup=get_localized_keyboard(language))
         await state.clear()
         return
 
-    # Есть цели — предлагаем выбор
+    # Есть цели — предлагаем выбор (остается без изменений)
     buttons = [[KeyboardButton(text=goal['name'])] for goal in goals]
     buttons.append([KeyboardButton(text=get_localized_text(language, 'skip_goal_linking'))])
 

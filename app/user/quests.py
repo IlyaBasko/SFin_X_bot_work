@@ -18,7 +18,7 @@ async def calculate_balance(user_id: int, period: Optional[str] = None) -> Dict:
     for op in operations:
         op_type = op['type']
         amount = float(op['amount'])
-        category = op['category']
+        category = op['comment'] if op['comment'] else op['category']  # Используем комментарий как категорию
 
         if op_type == 'income':
             result['total_income'] += amount

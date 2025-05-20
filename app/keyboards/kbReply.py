@@ -21,7 +21,6 @@ def settings_keyboard(language_code: str):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=get_localized_text(language_code, 'change_currency'))],
-            [KeyboardButton(text=get_localized_text(language_code, 'set_limits'))],
             [KeyboardButton(text=get_localized_text(language_code, 'language'))],
             [KeyboardButton(text=get_localized_text(language_code, 'notifications'))],
             [KeyboardButton(text=get_localized_text(language_code, 'back'))]

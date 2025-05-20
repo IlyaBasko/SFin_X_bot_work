@@ -53,6 +53,10 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'statistics_help_desc': "подробная статистика по операциям",
             'export_help_desc': "экспорт данных в CSV-файл",
             'help_footer': "Выберите нужный пункт в меню для работы с функцией.",
+            'export': '📤 Экспорт данных',
+            'export_description': 'Экспортировать все операции в CSV файл',
+            'export_success': 'Ваши данные успешно экспортированы',
+            'export_failed': 'Не удалось создать экспорт',
 
             # Напоминания
             'reminders': '⏰ Напоминания',
@@ -190,6 +194,10 @@ def get_localized_text(language_code: str, text_key: str) -> str:
             'statistics_help_desc': "detailed operations statistics",
             'export_help_desc': "export data to CSV file",
             'help_footer': "Select menu item to work with the function.",
+            'export': '📤 Export data',
+            'export_description': 'Export all operations to CSV file',
+            'export_success': 'Your data has been successfully exported',
+            'export_failed': 'Failed to create export',
 
             # Напоминания
             'reminders': '⏰ Reminders',
